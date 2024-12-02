@@ -1,2 +1,3 @@
 /target
 Cargo.lock
+# Rocket.toml # TODO: HIDE your app's credentials
