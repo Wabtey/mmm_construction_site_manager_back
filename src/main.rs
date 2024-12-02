@@ -9,8 +9,12 @@ use rocket::response::{Debug, Redirect};
 use rocket::{get, routes};
 use rocket_oauth2::{OAuth2, TokenResponse};
 
+mod roles;
+use roles::Role;
+
 struct User {
     pub username: String,
+    pub role: Option<Role>,
 }
 
 #[async_trait]
@@ -23,8 +27,13 @@ impl<'r> request::FromRequest<'r> for User {
             .await
             .expect("request cookies");
         if let Some(cookie) = cookies.get_private("username") {
+            let role_cookie = cookies.get_private("role").map(|c| c.value().to_string());
+            let role = role_cookie
+                .as_deref()
+                .and_then(|r| serde_json::from_str::<Role>(r).ok());
             return request::Outcome::Success(User {
                 username: cookie.value().to_string(),
+                role,
             });
         }
 
@@ -79,12 +88,33 @@ async fn github_callback(
 
 #[get("/")]
 fn index(user: User) -> String {
-    format!("Hi, {}!", user.username)
+    match user.role {
+        None => format!(
+            "Hi, {}!\nPlease select your role: /set_role/\"SiteManager\" or /set_role/\"SitesGlobalManager\".\nLog out at /logout",
+            user.username
+        ),
+        Some(role) => format!(
+            "Hi, {}! Your role is {:?}.\nLog out at /logout",
+            user.username, role
+        ),
+    }
 }
 
 #[get("/", rank = 2)]
 fn index_anonymous() -> &'static str {
     "Please login at /login/github"
+}
+
+#[get("/set_role/<role>")]
+fn set_role(role: &str, cookies: &CookieJar<'_>) -> Redirect {
+    if let Ok(parsed_role) = serde_json::from_str::<Role>(role) {
+        cookies.add_private(
+            Cookie::build(("role", serde_json::to_string(&parsed_role).unwrap()))
+                .same_site(SameSite::Lax)
+                .build(),
+        );
+    }
+    Redirect::to("/")
 }
 
 #[get("/logout")]
@@ -104,6 +134,7 @@ fn rocket() -> _ {
                 logout,
                 github_callback,
                 github_login,
+                set_role,
             ],
         )
         .attach(OAuth2::<GitHubUserInfo>::fairing("github"))
