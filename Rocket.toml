@@ -1,0 +1,23 @@
+## defaults for _all_ profiles
+# [default]
+# limits = { form = "64 kB", json = "1 MiB" }
+
+# [debug]
+# port = 8000
+# ## only the `json` key from `default` will be overridden; `form` will remain
+# limits = { json = "10MiB" }
+
+# [release]
+# port = 9999
+# ip_header = false
+# secret_key = "hPrYyЭRiMyµ5sBB1π+CMæ1køFsåqKvBiQJxBVHQk="
+
+[default.oauth.github]
+provider = "GitHub"
+# register a [github app here](https://github.com/settings/apps/new)
+client_id = "<the_client_id_of_your_newly_created_app>"
+client_secret = "<the_private_key_of_your_newly_created_app>"
+
+# redirect_uri is optional for this library. If left out, it must still be set
+# correctly on the provider's configuration page for the OAuth2 application.
+#redirect_uri = "http://localhost:8000/auth/github"
