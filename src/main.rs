@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod roles;
+pub mod sites;
 
 #[macro_use]
 extern crate rocket;

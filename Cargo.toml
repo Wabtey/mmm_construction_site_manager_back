@@ -5,11 +5,16 @@ edition = "2021"
 
 [dependencies]
 rocket = { version = "0.5", features = ["json", "secrets"] }
-# auth
+
+# -------------------------------- Database -------------------------------- #
+rocket_db_pools = { version = "0.2", features = ["diesel"] }
+
+# ---------------------------- Authentication ---------------------------- #
 anyhow = "1.0"
 reqwest = { version = "0.12.0", default-features = false, features = ["json", "rustls-tls"] }
 rocket_oauth2 = { version = "0.5", features = ["hyper_rustls_adapter"] }
+
 # ---------------------------------- Utils --------------------------------- #
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-  
+chrono = { git = "https://github.com/chronotope/chrono.git", branch = "main" }
