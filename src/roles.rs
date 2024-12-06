@@ -4,3 +4,8 @@ use serde::{Deserialize, Serialize};
 pub struct Worker {
     pub name: String,
 }
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+pub struct SiteManager {
+    pub name: String,
+}
