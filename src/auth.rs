@@ -1,13 +1,19 @@
 use anyhow::{Context, Error};
+use diesel::prelude::*;
 use reqwest::header::{ACCEPT, AUTHORIZATION, USER_AGENT};
 use rocket::{
-    get,
     http::{Cookie, CookieJar, SameSite, Status},
     request,
     response::{Debug, Redirect},
 };
 use rocket_oauth2::{OAuth2, TokenResponse};
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    models::{AppRole, InsertableUser},
+    schema::users,
+    services::establish_connection,
+};
 
 /// User information to be retrieved from the GitHub API.
 #[derive(serde::Deserialize)]
@@ -17,41 +23,16 @@ pub struct GitHubUserInfo {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub enum AppRole {
-    /// # Notes
-    ///
-    /// fr = chef·fe de chantier
-    ///
-    /// ## Actions
-    ///
-    /// - Monitor uncompleted sites, theirs information;
-    /// - Define the sites' status;
-    /// - Report site anomalies (difficulties, breakages, accidents, etc.);
-    /// - Submit site photos (achievements or difficulties, damage).
-    SiteManager,
-    /// # Notes
-    ///
-    /// fr = responsable des chantiers
-    ///
-    /// ## Actions
-    ///
-    /// - Monitor all sites, their status and potential anomalies;
-    /// - Create and edit sites;
-    /// - Manage resources.
-    SitesGlobalManager,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct User {
+pub struct CookieUser {
     pub username: String,
     pub role: Option<AppRole>,
 }
 
 #[async_trait]
-impl<'r> request::FromRequest<'r> for User {
+impl<'r> request::FromRequest<'r> for CookieUser {
     type Error = ();
 
-    async fn from_request(request: &'r request::Request<'_>) -> request::Outcome<User, ()> {
+    async fn from_request(request: &'r request::Request<'_>) -> request::Outcome<CookieUser, ()> {
         let cookies = request
             .guard::<&CookieJar<'_>>()
             .await
@@ -61,7 +42,7 @@ impl<'r> request::FromRequest<'r> for User {
             let role = role_cookie
                 .as_deref()
                 .and_then(|r| serde_json::from_str::<AppRole>(r).ok());
-            return request::Outcome::Success(User {
+            return request::Outcome::Success(CookieUser {
                 username: cookie.value().to_string(),
                 role,
             });
@@ -73,6 +54,11 @@ impl<'r> request::FromRequest<'r> for User {
 
 /* ------------------------------- End Points ------------------------------- */
 
+/// Sets the role of the user in a private cookie.
+///
+/// # Panics
+///
+/// This function will panic if the role cannot be serialized to a string.
 #[get("/set_role/<role>")]
 pub fn set_role(role: &str, cookies: &CookieJar<'_>) -> Redirect {
     if let Ok(parsed_role) = serde_json::from_str::<AppRole>(role) {
@@ -85,10 +71,12 @@ pub fn set_role(role: &str, cookies: &CookieJar<'_>) -> Redirect {
     Redirect::to("/")
 }
 
-// NB: Here we are using the same struct as a type parameter to OAuth2 and
-// TokenResponse as we use for the user's GitHub login details. For
-// `TokenResponse` and `OAuth2` the actual type does not matter; only that they
-// are matched up.
+/// Initiates the GitHub OAuth2 login process.
+///
+/// # Panics
+///
+/// This function will panic if the redirect URL cannot be generated.
+#[allow(clippy::needless_pass_by_value)]
 #[get("/login/github")]
 pub fn github_login(oauth2: OAuth2<GitHubUserInfo>, cookies: &CookieJar<'_>) -> Redirect {
     oauth2.get_redirect(cookies, &["user:read"]).unwrap()
@@ -100,6 +88,17 @@ pub fn logout(cookies: &CookieJar<'_>) -> Redirect {
     Redirect::to("/")
 }
 
+/// Handles the GitHub OAuth2 callback and sets a private cookie with the user's name.
+///
+/// # Errors
+///
+/// This function will return an error if the request to GitHub's API fails or if the response
+/// cannot be deserialized.
+///
+/// # Panics
+///
+/// This function will panic if the database connection cannot be established or if the user
+/// information cannot be inserted into the database.
 #[get("/auth/github")]
 pub async fn github_callback(
     token: TokenResponse<GitHubUserInfo>,
@@ -120,11 +119,26 @@ pub async fn github_callback(
         .await
         .context("failed to deserialize response")?;
 
+    /* ---------------------------- save in database ---------------------------- */
+    // Store the user information in the database.
+    let new_user = InsertableUser {
+        username: user_info.name.clone(),
+        // role: None,
+    };
+
+    let connection = &mut establish_connection();
+    diesel::insert_into(users::table)
+        .values(new_user)
+        .execute(connection)
+        .unwrap();
+
+    /* ----------------------------- save in cookie ----------------------------- */
     // Set a private cookie with the user's name, and redirect to the home page.
     cookies.add_private(
         Cookie::build(("username", user_info.name))
             .same_site(SameSite::Lax)
             .build(),
     );
+
     Ok(Redirect::to("/"))
 }

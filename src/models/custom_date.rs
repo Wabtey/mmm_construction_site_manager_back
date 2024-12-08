@@ -1,47 +1,27 @@
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
+use diesel::{deserialize::FromSqlRow, expression::AsExpression};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, time::SystemTime};
 
-use crate::roles::Worker;
+use crate::schema;
 
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub struct Site {
-    pub name: String,
-    pub purpose: String,
-    pub coordinates: (f32, f32),
-    pub start_day: usize,
-    pub duration: SiteDuration,
-    pub status: SiteStatus,
-    pub resources: SiteResource,
-    pub workers: Vec<Worker>,
-    /// REFACTOR: `Site.client_number` to `Site.client`
-    pub client_phone_number: String,
-    // site_manager: SiteManager,
-}
+/* ---------------------------------- Dates --------------------------------- */
 
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub enum SiteStatus {
-    #[default]
-    NotCarried,
-    InProgress,
-    Interrupted,
-    Completed,
-}
-
-/// # Notes
-///
-/// Number of half-day the site will last,
-/// and its start period (morning or afternoon).
-///
-/// > [!WARNING]
-/// > A site must last at least one half-day.
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub struct SiteDuration {
-    pub half_day: usize,
-    pub start_period: DayPeriod,
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default, Debug)]
+#[derive(
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Clone,
+    Copy,
+    Default,
+    Debug,
+    AsExpression,
+    FromSqlRow,
+)]
+#[sql_type = "schema::sql_types::SitesStartPeriodEnum"]
 pub enum DayPeriod {
     #[default]
     Morning = 0,
@@ -49,42 +29,12 @@ pub enum DayPeriod {
 }
 
 impl DayPeriod {
+    #[must_use]
     pub fn to_hms(&self) -> (u32, u32, u32) {
         match self {
             DayPeriod::Morning => (0, 0, 0),
             DayPeriod::Afternoon => (23, 59, 59),
         }
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-/*                                  Resources                                 */
-/* -------------------------------------------------------------------------- */
-
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub struct SiteResource {
-    pub vehicles: Vec<Vehicle>,
-}
-
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub struct Vehicle {
-    pub reserved_dates: Vec<ReservedDate>,
-}
-
-impl Vehicle {
-    pub fn reserve(
-        &self,
-        date_to_reserved: ReservedDate,
-    ) -> Result<(), AlreadyReservedInThatPeriodErr> {
-        for reserved_date in &self.reserved_dates {
-            if reserved_date.intersect_with(date_to_reserved) {
-                return Err(AlreadyReservedInThatPeriodErr::new(
-                    date_to_reserved,
-                    *reserved_date,
-                ));
-            }
-        }
-        Ok(())
     }
 }
 
@@ -101,6 +51,16 @@ pub struct ReservedDate {
 
 impl ReservedDate {
     /// Creates a new `ReservedDate` with default periods (Morning for start and Afternoon for end).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the provided date strings cannot be parsed into [`chrono::NaiveDate`](https://docs.rs/chrono/latest/chrono/struct.NaiveDate.html).
+    ///
+    /// # Errors
+    ///
+    /// Returns `DateParsedErr` if the start date is after the end date,
+    /// or if the periods are invalid (same day but ends in morning while starting in afternoon,
+    /// or same day but starts and ends at the same period).
     pub fn new(start_date: &str, end_date: &str) -> Result<ReservedDate, DateParsedErr> {
         ReservedDate::new_with_periods(
             DayPeriod::Morning,
@@ -111,6 +71,16 @@ impl ReservedDate {
     }
 
     /// Creates a new `ReservedDate` with specified periods.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the provided date strings cannot be parsed into [`chrono::NaiveDate`](https://docs.rs/chrono/latest/chrono/struct.NaiveDate.html).
+    ///
+    /// # Errors
+    ///
+    /// Returns `DateParsedErr` if the start date is after the end date,
+    /// or if the periods are invalid (same day but ends in morning while starting in afternoon,
+    /// or same day but starts and ends at the same period).
     pub fn new_with_periods(
         start_period: DayPeriod,
         start_date: &str,
@@ -119,13 +89,13 @@ impl ReservedDate {
     ) -> Result<ReservedDate, DateParsedErr> {
         let (start_hour, start_minute, start_second) = start_period.to_hms();
         let start_date = NaiveDate::parse_from_str(start_date, "%Y-%m-%d")
-            .map_err(|_| DateParsedErr(format!("Start Date YMD cannot parse - {}", start_date)))?
+            .map_err(|_| DateParsedErr(format!("Start Date YMD cannot parse - {start_date}")))?
             .and_hms_opt(start_hour, start_minute, start_second)
             .unwrap();
 
         let (end_hour, end_minute, end_second) = end_period.to_hms();
         let end_date = NaiveDate::parse_from_str(end_date, "%Y-%m-%d")
-            .map_err(|_| DateParsedErr(format!("End Date YMD cannot parse - {}", end_date)))?
+            .map_err(|_| DateParsedErr(format!("End Date YMD cannot parse - {end_date}")))?
             .and_hms_opt(end_hour, end_minute, end_second)
             .unwrap();
 
@@ -147,9 +117,9 @@ impl ReservedDate {
                             .to_string(),
                     ));
                 }
-                _ => {}
+                Ordering::Less => {}
             },
-            _ => {}
+            Ordering::Less => {}
         }
 
         let start_date: SystemTime = Utc.from_utc_datetime(&start_date).into();
@@ -165,6 +135,7 @@ impl ReservedDate {
 
     /// Assuming a well formed `ReservedDate`.
     /// There is three conditions for incompatibility:
+    #[must_use]
     pub fn intersect_with(&self, another_date: ReservedDate) -> bool {
         !self.compatible_with(another_date)
     }
@@ -174,6 +145,7 @@ impl ReservedDate {
     /// - The `another_date` starts after the `self` is finished;
     /// - or The `another_date` is finished before the `self`
     /// - or Same day but `self` is the morning and `another` is the afternoon
+    #[must_use]
     pub fn compatible_with(&self, another_date: ReservedDate) -> bool {
         let self_start: DateTime<Utc> = self.start_date.into();
         let self_end: DateTime<Utc> = self.end_date.into();
@@ -195,6 +167,7 @@ pub struct AlreadyReservedInThatPeriodErr {
 }
 
 impl AlreadyReservedInThatPeriodErr {
+    #[must_use]
     pub fn new(asked_date: ReservedDate, reserved_date: ReservedDate) -> Self {
         Self {
             asked_date,
