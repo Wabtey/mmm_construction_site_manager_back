@@ -1,7 +1,9 @@
 use diesel::Connection;
 use dotenvy::dotenv;
-use rocket_db_pools::diesel::prelude::MysqlConnection;
+use rocket_db_pools::diesel::prelude::*;
 use std::env;
+
+pub mod users;
 
 /// Establishes a connection to the database.
 ///

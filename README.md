@@ -104,6 +104,7 @@ classDiagram
 
     class AppRole {
         <<Abstract>>
+        + name: String
     }
 
     class Users {

@@ -5,10 +5,8 @@
 
 pub mod auth;
 pub mod models;
-pub mod roles;
 pub mod schema;
 pub mod services;
-pub mod sites;
 
 #[macro_use]
 extern crate rocket;
@@ -33,8 +31,8 @@ fn rocket() -> _ {
                 auth::github_callback,
                 auth::github_login,
                 auth::set_role,
-                models::list,
-                models::get_user_by_username,
+                services::users::list,
+                services::users::get_user_by_username,
             ],
         )
         .attach(OAuth2::<GitHubUserInfo>::fairing("github"))

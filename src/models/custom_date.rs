@@ -1,64 +1,27 @@
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
+use diesel::{deserialize::FromSqlRow, expression::AsExpression};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, time::SystemTime};
 
-use crate::roles::{SiteManager, Worker};
+use crate::schema;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Site {
-    pub name: String,
-    pub purpose: String,
-    pub coordinates: (f32, f32),
-    pub start_day: SystemTime,
-    pub duration: SiteDuration,
-    pub status: SiteStatus,
-    pub resources: SiteResource,
-    pub workers: Vec<Worker>,
-    pub site_manager: SiteManager,
-    /// REFACTOR: `Site.client_number` to `Site.client`
-    pub client_phone_number: String,
-}
+/* ---------------------------------- Dates --------------------------------- */
 
-impl Default for Site {
-    fn default() -> Self {
-        Self {
-            name: String::default(),
-            purpose: String::default(),
-            coordinates: (f32::default(), f32::default()),
-            start_day: SystemTime::now(),
-            duration: SiteDuration::default(),
-            status: SiteStatus::default(),
-            resources: SiteResource::default(),
-            workers: Vec::default(),
-            site_manager: SiteManager::default(),
-            client_phone_number: String::default(),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub enum SiteStatus {
-    #[default]
-    NotCarried,
-    InProgress,
-    Interrupted,
-    Completed,
-}
-
-/// # Notes
-///
-/// Number of half-day the site will last,
-/// and its start period (morning or afternoon).
-///
-/// > [!WARNING]
-/// > A site must last at least one half-day.
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub struct SiteDuration {
-    pub half_day: usize,
-    pub start_period: DayPeriod,
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default, Debug)]
+#[derive(
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Clone,
+    Copy,
+    Default,
+    Debug,
+    AsExpression,
+    FromSqlRow,
+)]
+#[sql_type = "schema::sql_types::SitesStartPeriodEnum"]
 pub enum DayPeriod {
     #[default]
     Morning = 0,
@@ -72,43 +35,6 @@ impl DayPeriod {
             DayPeriod::Morning => (0, 0, 0),
             DayPeriod::Afternoon => (23, 59, 59),
         }
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-/*                                  Resources                                 */
-/* -------------------------------------------------------------------------- */
-
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub struct SiteResource {
-    pub vehicles: Vec<Vehicle>,
-}
-
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub struct Vehicle {
-    pub name: String,
-    pub reserved_dates: Vec<ReservedDate>,
-}
-
-impl Vehicle {
-    /// Reserves a vehicle for the specified date.
-    ///
-    /// # Errors
-    ///
-    /// Returns `AlreadyReservedInThatPeriodErr` if the vehicle is already reserved for the specified date.
-    pub fn reserve(
-        &self,
-        date_to_reserved: ReservedDate,
-    ) -> Result<(), AlreadyReservedInThatPeriodErr> {
-        for reserved_date in &self.reserved_dates {
-            if reserved_date.intersect_with(date_to_reserved) {
-                return Err(AlreadyReservedInThatPeriodErr::new(
-                    date_to_reserved,
-                    *reserved_date,
-                ));
-            }
-        }
-        Ok(())
     }
 }
 
