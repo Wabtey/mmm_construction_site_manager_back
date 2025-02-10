@@ -1,5 +1,4 @@
 use anyhow::{Context, Error};
-use diesel::prelude::*;
 use reqwest::header::{ACCEPT, AUTHORIZATION, USER_AGENT};
 use rocket::{
     http::{Cookie, CookieJar, SameSite, Status},
@@ -8,12 +7,9 @@ use rocket::{
 };
 use rocket_oauth2::{OAuth2, TokenResponse};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
-use crate::{
-    models::{AppRole, InsertableUser},
-    schema::users,
-    services::establish_connection,
-};
+use crate::models::{AppRole, DbState, User};
 
 /// User information to be retrieved from the GitHub API.
 #[derive(serde::Deserialize)]
@@ -97,10 +93,11 @@ pub fn logout(cookies: &CookieJar<'_>) -> Redirect {
 ///
 /// # Panics
 ///
-/// This function will panic if the database connection cannot be established or if the user
+/// This function will panic if the read lock on the database state cannot be acquired or if the user
 /// information cannot be inserted into the database.
 #[get("/auth/github")]
 pub async fn github_callback(
+    db: &DbState,
     token: TokenResponse<GitHubUserInfo>,
     cookies: &CookieJar<'_>,
 ) -> Result<Redirect, Debug<Error>> {
@@ -121,16 +118,22 @@ pub async fn github_callback(
 
     /* ---------------------------- save in database ---------------------------- */
     // Store the user information in the database.
-    let new_user = InsertableUser {
+    let new_user = User {
         username: user_info.name.clone(),
-        // role: None,
+        id: {
+            let db_read = db.0.read().unwrap();
+            loop {
+                let id = Uuid::new_v4().into();
+                if !db_read.users.iter().any(|user| user.id == id) {
+                    break id;
+                }
+            }
+        },
+        role: None,
     };
 
-    let connection = &mut establish_connection();
-    diesel::insert_into(users::table)
-        .values(new_user)
-        .execute(connection)
-        .unwrap();
+    let mut db_write = db.0.write().unwrap();
+    db_write.users.push(new_user);
 
     /* ----------------------------- save in cookie ----------------------------- */
     // Set a private cookie with the user's name, and redirect to the home page.

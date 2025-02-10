@@ -5,7 +5,6 @@
 
 pub mod auth;
 pub mod models;
-pub mod schema;
 pub mod services;
 
 #[macro_use]
@@ -13,14 +12,14 @@ extern crate rocket;
 // extern crate diesel;
 
 use crate::auth::{CookieUser, GitHubUserInfo};
+use models::Db;
 use rocket::routes;
-use rocket_db_pools::Database;
 use rocket_oauth2::OAuth2;
 
 #[rocket::launch]
 fn rocket() -> _ {
     rocket::build()
-        .attach(models::Db::init())
+        .manage(Db::default())
         // .attach(database::CatchDbErrors)
         .mount(
             "/",

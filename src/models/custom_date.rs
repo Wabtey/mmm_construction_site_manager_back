@@ -1,27 +1,10 @@
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
-use diesel::{deserialize::FromSqlRow, expression::AsExpression};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, time::SystemTime};
 
-use crate::schema;
-
 /* ---------------------------------- Dates --------------------------------- */
 
-#[derive(
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Clone,
-    Copy,
-    Default,
-    Debug,
-    AsExpression,
-    FromSqlRow,
-)]
-#[sql_type = "schema::sql_types::SitesStartPeriodEnum"]
+#[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default, Debug)]
 pub enum DayPeriod {
     #[default]
     Morning = 0,
