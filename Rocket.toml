@@ -21,3 +21,6 @@ client_secret = "<the_private_key_of_your_newly_created_app>"
 # redirect_uri is optional for this library. If left out, it must still be set
 # correctly on the provider's configuration page for the OAuth2 application.
 #redirect_uri = "http://localhost:8000/auth/github"
+
+[default.databases.diesel_mysql]
+url = "mysql://sitemanager:icantbelieveiletyougetaway@localhost:3306/sitemanagerdb"

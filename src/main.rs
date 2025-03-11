@@ -1,18 +1,26 @@
+#![deny(clippy::pedantic)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![deny(unused_must_use)]
+
 pub mod auth;
-pub mod roles;
-pub mod sites;
+pub mod models;
+pub mod services;
 
 #[macro_use]
 extern crate rocket;
+// extern crate diesel;
 
-use self::auth::GitHubUserInfo;
-use auth::User;
-use rocket::{get, routes};
+use crate::auth::{CookieUser, GitHubUserInfo};
+use models::Db;
+use rocket::routes;
 use rocket_oauth2::OAuth2;
 
 #[rocket::launch]
 fn rocket() -> _ {
     rocket::build()
+        .manage(Db::default())
+        // .attach(database::CatchDbErrors)
         .mount(
             "/",
             routes![
@@ -22,6 +30,8 @@ fn rocket() -> _ {
                 auth::github_callback,
                 auth::github_login,
                 auth::set_role,
+                services::users::list,
+                services::users::get_user_by_username,
             ],
         )
         .attach(OAuth2::<GitHubUserInfo>::fairing("github"))
@@ -30,10 +40,10 @@ fn rocket() -> _ {
 /* ---------------------------------- Pages --------------------------------- */
 
 #[get("/")]
-fn index(user: User) -> String {
+fn index(user: CookieUser) -> String {
     match user.role {
         None => format!(
-            "Hi, {}!\nPlease select your role: /set_role/\"SiteManager\" or /set_role/\"SitesGlobalManager\".\nLog out at /logout",
+            "Hi, {}!\nPlease select your role: /set_role/\"SiteManager\" or /set_role/\"SiteSupervisor\".\nLog out at /logout",
             user.username
         ),
         Some(role) => format!(
