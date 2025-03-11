@@ -1,4 +1,4 @@
-use std::sync::RwLock;
+use std::sync::{Arc, Mutex};
 
 use resources::Vehicle;
 use rocket::request::{FromRequest, Outcome};
@@ -12,54 +12,35 @@ pub mod roles;
 pub mod sites;
 
 /* -------------------------------------------------------------------------- */
-/*                              Database Request                              */
+/*                                    Model                                   */
 /* -------------------------------------------------------------------------- */
 
-#[derive(Default)]
-pub struct DbState(pub RwLock<Db>);
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct Db {
+    pub users: Mutex<Vec<User>>,
+    pub sites: Mutex<Vec<sites::Site>>,
+    pub workers: Mutex<Vec<roles::Worker>>,
+    pub site_managers: Mutex<Vec<roles::SiteManager>>,
+    pub clients: Mutex<Vec<roles::Client>>,
+    /// all resources (used and unused)
+    ///
+    /// REFACTOR: change to Resource
+    pub resources: Mutex<Vec<Vehicle>>,
+}
 
 #[rocket::async_trait]
-impl<'r> FromRequest<'r> for &'r DbState {
+impl<'r> FromRequest<'r> for &'r Db {
     type Error = ();
 
     async fn from_request(request: &'r rocket::Request<'_>) -> Outcome<Self, Self::Error> {
-        match request.guard::<&State<DbState>>().await {
+        match request.guard::<&State<Db>>().await {
             Outcome::Success(db) => Outcome::Success(db.inner()),
             _ => Outcome::Error((rocket::http::Status::InternalServerError, ())),
         }
     }
 }
 
-/* -------------------------------------------------------------------------- */
-/*                                    Model                                   */
-/* -------------------------------------------------------------------------- */
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct Db {
-    pub users: Vec<User>,
-    pub sites: Vec<sites::Site>,
-    pub workers: Vec<roles::Worker>,
-    pub site_managers: Vec<roles::SiteManager>,
-    pub clients: Vec<roles::Client>,
-    /// all resources (used and unused)
-    ///
-    /// REFACTOR: change to Resource
-    pub resources: Vec<Vehicle>,
-}
-
-// #[rocket::async_trait]
-// impl<'r> FromRequest<'r> for &'r Db {
-//     type Error = ();
-
-//     async fn from_request(request: &'r rocket::Request<'_>) -> Outcome<Self, Self::Error> {
-//         match request.guard::<&State<Db>>().await {
-//             Outcome::Success(db) => Outcome::Success(db.inner()),
-//             _ => Outcome::Error((rocket::http::Status::InternalServerError, ())),
-//         }
-//     }
-// }
-
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum AppRole {
     /// # Notes
     ///
@@ -86,7 +67,7 @@ pub enum AppRole {
 
 /* ---------------------------------- Users --------------------------------- */
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct User {
     pub id: String,
     pub username: String,
@@ -97,9 +78,28 @@ pub struct User {
 /* ---------------------------------- Sites --------------------------------- */
 
 impl Db {
+    /// # Panics
+    ///
+    /// If another user of the sites mutex panicked while holding the mutex.
     #[must_use]
-    pub fn site_lookup(&self, id: u64) -> Option<&Site> {
-        self.sites.iter().find(|&site| site.id == id)
+    pub fn site_lookup(&self, id: u64) -> Option<Arc<Mutex<Site>>> {
+        let sites = self.sites.lock().unwrap();
+        sites
+            .iter()
+            .find(|&site| site.id == id)
+            .map(|site| Arc::new(Mutex::new(site.clone())))
+    }
+
+    /// # Panics
+    ///
+    /// If another user of the users mutex panicked while holding the mutex.
+    pub fn user_lookup(&self, search_username: &str) -> Option<Arc<Mutex<User>>> {
+        self.users
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|user| user.username == search_username)
+            .map(|site| Arc::new(Mutex::new(site.clone())))
     }
 }
 

@@ -6,7 +6,7 @@ use crate::models::custom_date::{AlreadyReservedInThatPeriodErr, ReservedDate};
 /*                                  Resources                                 */
 /* -------------------------------------------------------------------------- */
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct SiteResource {
     pub vehicles: Vec<Vehicle>,
 }
@@ -18,7 +18,7 @@ impl SiteResource {
     }
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct Vehicle {
     pub name: String,
     pub reserved_dates: Vec<ReservedDate>,

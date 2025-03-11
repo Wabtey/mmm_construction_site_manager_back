@@ -9,7 +9,7 @@ use rocket_oauth2::{OAuth2, TokenResponse};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::models::{AppRole, DbState, User};
+use crate::models::{AppRole, Db, User};
 
 /// User information to be retrieved from the GitHub API.
 #[derive(serde::Deserialize)]
@@ -97,18 +97,18 @@ pub fn logout(cookies: &CookieJar<'_>) -> Redirect {
 /// information cannot be inserted into the database.
 #[get("/auth/github")]
 pub async fn github_callback(
-    db: &DbState,
+    db: &Db,
     token: TokenResponse<GitHubUserInfo>,
     cookies: &CookieJar<'_>,
 ) -> Result<Redirect, Debug<Error>> {
-    // Use the token to retrieve the user's GitHub account information.
+    // use the token to retrieve the user's GitHub account information.
     let user_info: GitHubUserInfo = reqwest::Client::builder()
         .build()
         .context("failed to build reqwest client")?
         .get("https://api.github.com/user")
         .header(AUTHORIZATION, format!("token {}", token.access_token()))
         .header(ACCEPT, "application/vnd.github.v3+json")
-        .header(USER_AGENT, "rocket_oauth2 demo application")
+        .header(USER_AGENT, "mmm_construction_site_manager")
         .send()
         .await
         .context("failed to complete request")?
@@ -117,14 +117,13 @@ pub async fn github_callback(
         .context("failed to deserialize response")?;
 
     /* ---------------------------- save in database ---------------------------- */
-    // Store the user information in the database.
     let new_user = User {
         username: user_info.name.clone(),
         id: {
-            let db_read = db.0.read().unwrap();
+            let users = db.users.lock().unwrap();
             loop {
                 let id = Uuid::new_v4().into();
-                if !db_read.users.iter().any(|user| user.id == id) {
+                if !users.iter().any(|user| user.id == id) {
                     break id;
                 }
             }
@@ -132,14 +131,14 @@ pub async fn github_callback(
         role: None,
     };
 
-    let mut db_write = db.0.write().unwrap();
-    db_write.users.push(new_user);
+    db.users.lock().unwrap().push(new_user);
 
     /* ----------------------------- save in cookie ----------------------------- */
-    // Set a private cookie with the user's name, and redirect to the home page.
     cookies.add_private(
         Cookie::build(("username", user_info.name))
+            .secure(true)
             .same_site(SameSite::Lax)
+            .http_only(true)
             .build(),
     );
 

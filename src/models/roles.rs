@@ -3,15 +3,15 @@ use rocket::response::Debug;
 use rocket_db_pools::diesel::QueryResult;
 use serde::{Deserialize, Serialize};
 
-use super::DbState;
+use super::Db;
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct Worker {
     pub id: u64,
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct SiteManager {
     pub id: u64,
     pub name: String,
@@ -23,7 +23,7 @@ pub struct SitesGlobalManager {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct Client {
     pub id: u64,
     pub name: String,
@@ -39,10 +39,9 @@ pub struct Client {
 ///
 /// This function will panic if the read lock on the database state cannot be acquired.
 #[get("/sites/<searched_site_id>/workers")]
-pub fn get_workers_by_site(db: &DbState, searched_site_id: u64) -> QueryResult<String> {
-    let db_read = db.0.read().unwrap();
-    if let Some(searched_site) = db_read.site_lookup(searched_site_id) {
-        let workers = &searched_site.workers;
+pub fn get_workers_by_site(db: &Db, searched_site_id: u64) -> QueryResult<String> {
+    if let Some(searched_site) = db.site_lookup(searched_site_id) {
+        let workers = &searched_site.lock().unwrap().workers;
         Ok(format!("{workers:?}"))
     } else {
         Err(Debug(Error::NotFound))

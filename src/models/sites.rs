@@ -7,7 +7,7 @@ use crate::models::{
     roles::{Client, SiteManager, Worker},
 };
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Site {
     pub id: u64,
     pub name: String,
@@ -44,7 +44,7 @@ impl Default for Site {
     }
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub enum SiteStatus {
     #[default]
     NotCarried,
@@ -62,7 +62,7 @@ pub enum SiteStatus {
 /// > A site must last at least one half-day.
 ///
 /// REFACTOR: use a `ReservedDate` also (and rename it `DatePeriod` or `PlainDate`)
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct SiteDuration {
     pub half_day: i32,
     pub start_period: DayPeriod,
