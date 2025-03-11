@@ -18,7 +18,7 @@ pub struct SiteManager {
 }
 
 #[derive(Serialize, Deserialize, Default, Debug)]
-pub struct SitesGlobalManager {
+pub struct SiteSupervisor {
     pub id: u64,
     pub name: String,
 }

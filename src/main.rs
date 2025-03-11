@@ -43,7 +43,7 @@ fn rocket() -> _ {
 fn index(user: CookieUser) -> String {
     match user.role {
         None => format!(
-            "Hi, {}!\nPlease select your role: /set_role/\"SiteManager\" or /set_role/\"SitesGlobalManager\".\nLog out at /logout",
+            "Hi, {}!\nPlease select your role: /set_role/\"SiteManager\" or /set_role/\"SiteSupervisor\".\nLog out at /logout",
             user.username
         ),
         Some(role) => format!(

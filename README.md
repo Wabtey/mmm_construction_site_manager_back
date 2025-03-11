@@ -8,6 +8,10 @@
 [codecov-img]: https://img.shields.io/codecov/c/github/Wabtey/mmm_construction_site_manager_back%2Fbranch%2Ffeature-sites?logo=codecov
 [codecov-link]: https://codecov.io/gh/Wabtey/mmm_construction_site_manager_back
 
+## Features
+
+- authentication mechanism to distinguish `SiteManager`s (chef de chantier) of `SiteSupervisor`s (responsable des chantiers) of `Client`s.
+
 ## "Quick"start
 
 - run the back
@@ -126,14 +130,14 @@ classDiagram
     class SiteManager {
     }
 
-    note for SitesGlobalManager "manage all region sites"
-    class SitesGlobalManager {
+    note for SiteSupervisor "manage all region sites"
+    class SiteSupervisor {
     }
 
     AppRole <|-- Client
     AppRole <|-- Worker
     AppRole <|-- SiteManager
-    AppRole <|-- SitesGlobalManager
+    AppRole <|-- SiteSupervisor
 ```
 
 ## TODOs
@@ -146,7 +150,7 @@ classDiagram
   - [x] create and read
 - [ ] Roles
   - [ ] SiteManager
-  - [ ] SitesGlobalManager
+  - [ ] SiteSupervisor
 - [ ] TODO: containerize rust app and sql db
 
 ## Debug

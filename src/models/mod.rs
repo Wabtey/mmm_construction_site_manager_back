@@ -62,7 +62,7 @@ pub enum AppRole {
     /// - Monitor all sites, their status and potential anomalies;
     /// - Create and edit sites;
     /// - Manage resources.
-    SitesGlobalManager,
+    SiteSupervisor,
 }
 
 /* ---------------------------------- Users --------------------------------- */
