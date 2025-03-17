@@ -44,7 +44,7 @@ impl Default for Site {
     }
 }
 
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Default, Debug, Clone)]
 pub enum SiteStatus {
     #[default]
     NotCarried,

@@ -1,10 +1,9 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use resources::Vehicle;
 use rocket::request::{FromRequest, Outcome};
 use rocket::State;
 use serde::{Deserialize, Serialize};
-use sites::Site;
 
 pub mod custom_date;
 pub mod resources;
@@ -21,11 +20,15 @@ pub struct Db {
     pub sites: Mutex<Vec<sites::Site>>,
     pub workers: Mutex<Vec<roles::Worker>>,
     pub site_managers: Mutex<Vec<roles::SiteManager>>,
+    pub site_supervisors: Mutex<Vec<roles::SiteSupervisor>>,
     pub clients: Mutex<Vec<roles::Client>>,
     /// all resources (used and unused)
     ///
     /// REFACTOR: change to Resource
     pub resources: Mutex<Vec<Vehicle>>,
+    /// Only increment, shared across all tables.
+    /// Used to generate unique id for created element.
+    pub last_id_created: Mutex<u64>,
 }
 
 #[rocket::async_trait]
@@ -74,33 +77,3 @@ pub struct User {
     /// `AppRole`
     pub role: Option<AppRole>,
 }
-
-/* ---------------------------------- Sites --------------------------------- */
-
-impl Db {
-    /// # Panics
-    ///
-    /// If another user of the sites mutex panicked while holding the mutex.
-    #[must_use]
-    pub fn site_lookup(&self, id: u64) -> Option<Arc<Mutex<Site>>> {
-        let sites = self.sites.lock().unwrap();
-        sites
-            .iter()
-            .find(|&site| site.id == id)
-            .map(|site| Arc::new(Mutex::new(site.clone())))
-    }
-
-    /// # Panics
-    ///
-    /// If another user of the users mutex panicked while holding the mutex.
-    pub fn user_lookup(&self, search_username: &str) -> Option<Arc<Mutex<User>>> {
-        self.users
-            .lock()
-            .unwrap()
-            .iter()
-            .find(|user| user.username == search_username)
-            .map(|site| Arc::new(Mutex::new(site.clone())))
-    }
-}
-
-/* -------------------------------- Vehicles -------------------------------- */
