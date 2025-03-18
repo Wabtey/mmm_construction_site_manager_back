@@ -71,14 +71,10 @@ pub fn get_all_workers(db: &Db) -> QueryResult<Json<Vec<Worker>>> {
 ///
 /// This function will panic if the write lock on the database state cannot be acquired.
 #[post("/workers", data = "<worker>")]
-pub fn create_worker(db: &Db, worker: Json<Worker>) -> Created<String> {
+pub fn create_worker(db: &Db, worker: Json<Worker>) -> Created<Json<Worker>> {
     let new_worker = db.create_worker(worker.into_inner());
-    let worker_string = format!("{:?}", new_worker.lock().unwrap());
-    Created::new(format!(
-        "localhost:8000/api/workers/{}",
-        new_worker.lock().unwrap().id
-    ))
-    .body(worker_string)
+    let worker = new_worker.lock().unwrap();
+    Created::new(format!("localhost:8000/api/workers/{}", worker.id)).body(Json(worker.clone()))
 }
 
 /// Update an existing worker
@@ -130,5 +126,177 @@ pub fn delete_worker(db: &Db, worker_id: u64) -> Result<Json<Worker>, NotFound<S
         Ok(Json(worker.clone()))
     } else {
         Err(NotFound(format!("Worker with ID {worker_id} not found")))
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                    Tests                                   */
+/* -------------------------------------------------------------------------- */
+
+#[cfg(test)]
+#[allow(clippy::panic, clippy::expect_used)]
+mod tests {
+    use rocket::local::blocking::Client as RocketClient;
+    use rocket::{http::Status, Build, Rocket};
+
+    use crate::endpoints::roles::workers;
+    use crate::models::{roles::Worker, Db};
+
+    fn setup_rocket() -> Rocket<Build> {
+        let db = Db::default();
+
+        db.workers.lock().unwrap().push(Worker {
+            id: 1000,
+            name: "Myriam".to_owned(),
+        });
+        db.workers.lock().unwrap().push(Worker {
+            id: 1001,
+            name: "Morgan".to_owned(),
+        });
+
+        rocket::build().manage(db).mount(
+            "/api",
+            rocket::routes![
+                workers::get_worker,
+                workers::get_all_workers,
+                workers::create_worker,
+                workers::update_worker,
+                workers::delete_worker,
+            ],
+        )
+    }
+
+    #[test]
+    fn test_get_all_workers() {
+        let rocket_client = RocketClient::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        let response = rocket_client.get("/api/workers").dispatch();
+
+        assert_eq!(response.status(), Status::Ok);
+        let response_body: Vec<Worker> = response
+            .into_json::<Vec<Worker>>()
+            .expect("Failed to parse to Rust Type");
+        assert!(response_body.iter().any(|worker| worker.name == "Myriam"));
+        assert!(response_body.iter().any(|worker| worker.name == "Morgan"));
+    }
+
+    #[test]
+    fn test_get_worker_found() {
+        let rocket_client = RocketClient::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        let response = rocket_client.get("/api/workers/1000").dispatch();
+
+        assert_eq!(response.status(), Status::Ok);
+        let worker: Worker = response
+            .into_json::<Worker>()
+            .expect("Failed to parse to Rust Type");
+        assert_eq!(worker.name, "Myriam");
+        assert_eq!(worker.id, 1000);
+    }
+
+    #[test]
+    fn test_get_worker_not_found() {
+        let rocket_client = RocketClient::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        let response = rocket_client.get("/api/workers/9000").dispatch();
+
+        assert_eq!(response.status(), Status::NotFound);
+        let response_body = response.into_string().unwrap();
+        assert!(response_body.contains("Worker with ID 9000 not found"));
+    }
+
+    #[test]
+    fn test_create_worker() {
+        let rocket_client = RocketClient::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        let new_worker = Worker {
+            id: 9874, // will be re-generated
+            name: "Shaolin".to_owned(),
+        };
+        let response = rocket_client
+            .post("/api/workers")
+            .json(&new_worker)
+            .dispatch();
+
+        assert_eq!(response.status(), Status::Created);
+        let worker: Worker = response
+            .into_json::<Worker>()
+            .expect("Failed to parse to Rust Type");
+        assert_eq!(worker.name, "Shaolin");
+        assert_eq!(worker.id, 1);
+
+        // test the auto-increment
+        let new_worker = Worker {
+            id: 9874, // will be re-generated
+            name: "Lyra".to_owned(),
+        };
+        let response = rocket_client
+            .post("/api/workers")
+            .json(&new_worker)
+            .dispatch();
+
+        assert_eq!(response.status(), Status::Created);
+        let worker: Worker = response
+            .into_json::<Worker>()
+            .expect("Failed to parse to Rust Type");
+        assert_eq!(worker.name, "Lyra");
+        assert_eq!(worker.id, 2);
+    }
+
+    #[test]
+    fn test_update_worker_found() {
+        let rocket_client = RocketClient::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        let edited_client = Worker {
+            id: 1000,
+            name: "Maryam".to_owned(),
+        };
+        let response = rocket_client
+            .put("/api/workers/1000")
+            .json(&edited_client)
+            .dispatch();
+
+        assert_eq!(response.status(), Status::Ok);
+        let worker: Worker = response
+            .into_json::<Worker>()
+            .expect("Failed to parse to Rust Type");
+        assert_eq!(worker.name, "Maryam");
+        assert_eq!(worker.id, 1000);
+    }
+
+    #[test]
+    fn test_delete_worker_found() {
+        let rocket_client = RocketClient::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        let response = rocket_client.delete("/api/workers/1000").dispatch();
+
+        assert_eq!(response.status(), Status::Ok);
+        let worker: Worker = response
+            .into_json::<Worker>()
+            .expect("Failed to parse to Rust Type");
+        assert_eq!(worker.name, "Myriam");
+        assert_eq!(worker.id, 1000);
+    }
+
+    #[test]
+    fn test_delete_worker_not_found() {
+        let rocket_client = RocketClient::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        let response = rocket_client.delete("/api/workers/9999").dispatch();
+        assert_eq!(response.status(), Status::NotFound);
     }
 }

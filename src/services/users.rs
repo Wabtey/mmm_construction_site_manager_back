@@ -29,7 +29,24 @@ impl Db {
     /// # Panics
     ///
     /// If another user of the users mutex panicked while holding the mutex.
-    pub fn user_lookup(&self, search_username: &str) -> Option<Arc<Mutex<User>>> {
+    pub fn user_lookup(&self, id: &str) -> Option<Arc<Mutex<User>>> {
+        self.users
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|user| user.id == id)
+            .map(|user| Arc::new(Mutex::new(user.clone())))
+    }
+
+    /// # Returns
+    ///
+    /// - None if user is not found.
+    /// - Some(a clone of the searched user)
+    ///
+    /// # Panics
+    ///
+    /// If another user of the users mutex panicked while holding the mutex.
+    pub fn username_lookup(&self, search_username: &str) -> Option<Arc<Mutex<User>>> {
         self.users
             .lock()
             .unwrap()

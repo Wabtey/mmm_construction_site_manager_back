@@ -43,7 +43,7 @@ impl<'r> FromRequest<'r> for &'r Db {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub enum AppRole {
     /// # Notes
     ///
@@ -76,4 +76,5 @@ pub struct User {
     pub username: String,
     /// `AppRole`
     pub role: Option<AppRole>,
+    // TODO: feat - add role index foreign key
 }

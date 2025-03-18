@@ -101,18 +101,11 @@ impl Db {
     /// If another user of the sites mutex panicked while holding the mutex.
     pub fn delete_site(&self, site_id: u64) -> Option<Arc<Mutex<Site>>> {
         let mut sites = self.sites.lock().unwrap();
-        let initial_len = sites.len();
+        let to_be_deleted_site = sites.iter().find(|site| site.id == site_id).cloned();
 
-        sites.retain(|site| site.id != site_id);
-
-        if sites.len() < initial_len {
-            Some(Arc::new(Mutex::new(
-                sites
-                    .iter()
-                    .find(|site| site.id == site_id)
-                    .cloned()
-                    .unwrap(),
-            )))
+        if let Some(site) = to_be_deleted_site {
+            sites.retain(|site| site.id != site_id);
+            Some(Arc::new(Mutex::new(site)))
         } else {
             None
         }
