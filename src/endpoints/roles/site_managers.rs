@@ -250,13 +250,13 @@ mod tests {
             panic!("Failed to create a valid rocket instance: {err}");
         });
 
-        let edited_client = SiteManager {
+        let edited_manager = SiteManager {
             id: 1000,
             name: "Maryam".to_owned(),
         };
         let response = rocket_client
             .put("/api/site_managers/1000")
-            .json(&edited_client)
+            .json(&edited_manager)
             .dispatch();
 
         assert_eq!(response.status(), Status::Ok);
@@ -265,6 +265,24 @@ mod tests {
             .expect("Failed to parse to Rust Type");
         assert_eq!(manager.name, "Maryam");
         assert_eq!(manager.id, 1000);
+    }
+
+    #[test]
+    fn test_update_site_manager_not_found() {
+        let rocket_client = RocketClient::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        let edited_manager = SiteManager {
+            id: 0,
+            name: "Mirage".to_owned(),
+        };
+        let response = rocket_client
+            .put("/api/site_managers/9000")
+            .json(&edited_manager)
+            .dispatch();
+
+        assert_eq!(response.status(), Status::NotFound);
     }
 
     #[test]

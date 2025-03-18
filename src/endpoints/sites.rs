@@ -316,6 +316,26 @@ mod tests {
     }
 
     #[test]
+    fn test_update_site_not_found() {
+        let rocket_client = Client::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        let edited_site = Site {
+            id: 0,
+            name: "Trump Tower".to_owned(),
+            purpose: "A nice project".to_owned(),
+            ..Default::default()
+        };
+        let response = rocket_client
+            .put("/api/sites/9000")
+            .json(&edited_site)
+            .dispatch();
+
+        assert_eq!(response.status(), Status::NotFound);
+    }
+
+    #[test]
     fn test_delete_site_found() {
         let client = Client::tracked(setup_rocket()).unwrap_or_else(|err| {
             panic!("Failed to create a valid rocket instance: {err}");

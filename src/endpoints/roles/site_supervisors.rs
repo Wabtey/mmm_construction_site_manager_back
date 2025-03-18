@@ -263,13 +263,13 @@ mod tests {
             panic!("Failed to create a valid rocket instance: {err}");
         });
 
-        let edited_client = SiteSupervisor {
+        let edited_supervisor = SiteSupervisor {
             id: 1000,
             name: "Maryam".to_owned(),
         };
         let response = rocket_client
             .put("/api/site_supervisors/1000")
-            .json(&edited_client)
+            .json(&edited_supervisor)
             .dispatch();
 
         assert_eq!(response.status(), Status::Ok);
@@ -278,6 +278,24 @@ mod tests {
             .expect("Failed to parse to Rust Type");
         assert_eq!(supervisor.name, "Maryam");
         assert_eq!(supervisor.id, 1000);
+    }
+
+    #[test]
+    fn test_update_site_supervisor_not_found() {
+        let rocket_client = RocketClient::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        let edited_supervisor = SiteSupervisor {
+            id: 0,
+            name: "Mirage".to_owned(),
+        };
+        let response = rocket_client
+            .put("/api/site_supervisors/9000")
+            .json(&edited_supervisor)
+            .dispatch();
+
+        assert_eq!(response.status(), Status::NotFound);
     }
 
     #[test]

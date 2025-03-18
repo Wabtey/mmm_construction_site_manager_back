@@ -83,13 +83,13 @@
 ## "Quick"start
 
 - run the back
-  - install rust (minimal profile).
+  - install rust (minimal profile, stable toolchain).
   `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh` from [rust-lang](https://www.rust-lang.org/tools/install)
   - setup `rocket`
     - edit the `Rocket.toml` file to include your github app secrets
 
     ```toml
-    # register a [github app here](https://github.com/settings/apps/new)
+    # you have to register a [github app here](https://github.com/settings/apps/new)
     client_id = "<the_client_id_of_your_newly_created_app>"
     client_secret = "<the_private_key_of_your_newly_created_app>"
     ```

@@ -257,13 +257,13 @@ mod tests {
             panic!("Failed to create a valid rocket instance: {err}");
         });
 
-        let edited_client = Worker {
+        let edited_worker = Worker {
             id: 1000,
             name: "Maryam".to_owned(),
         };
         let response = rocket_client
             .put("/api/workers/1000")
-            .json(&edited_client)
+            .json(&edited_worker)
             .dispatch();
 
         assert_eq!(response.status(), Status::Ok);
@@ -272,6 +272,24 @@ mod tests {
             .expect("Failed to parse to Rust Type");
         assert_eq!(worker.name, "Maryam");
         assert_eq!(worker.id, 1000);
+    }
+
+    #[test]
+    fn test_update_worker_not_found() {
+        let rocket_client = RocketClient::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        let edited_worker = Worker {
+            id: 0,
+            name: "Mirage".to_owned(),
+        };
+        let response = rocket_client
+            .put("/api/workers/9000")
+            .json(&edited_worker)
+            .dispatch();
+
+        assert_eq!(response.status(), Status::NotFound);
     }
 
     #[test]

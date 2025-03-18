@@ -267,6 +267,25 @@ mod tests {
     }
 
     #[test]
+    fn test_update_client_not_found() {
+        let rocket_client = RocketClient::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        let edited_client = Client {
+            id: 0,
+            name: "Mirage".to_owned(),
+            ..Default::default()
+        };
+        let response = rocket_client
+            .put("/api/clients/9000")
+            .json(&edited_client)
+            .dispatch();
+
+        assert_eq!(response.status(), Status::NotFound);
+    }
+
+    #[test]
     fn test_delete_client_found() {
         let rocket_client = RocketClient::tracked(setup_rocket()).unwrap_or_else(|err| {
             panic!("Failed to create a valid rocket instance: {err}");
