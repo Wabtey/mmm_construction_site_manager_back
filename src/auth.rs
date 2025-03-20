@@ -9,7 +9,10 @@ use rocket_oauth2::{OAuth2, TokenResponse};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::models::{AppRole, Db, User};
+use crate::models::{
+    roles::{RoleResponse, SiteManager, SiteSupervisor},
+    AppRole, Db, User,
+};
 
 /// User information to be retrieved from the GitHub API.
 #[derive(serde::Deserialize)]
@@ -54,15 +57,47 @@ impl<'r> request::FromRequest<'r> for CookieUser {
 ///
 /// # Panics
 ///
-/// This function will panic if the role cannot be serialized to a string.
-#[get("/set_role/<role>")]
-pub fn set_role(role: &str, cookies: &CookieJar<'_>) -> Redirect {
-    if let Ok(parsed_role) = serde_json::from_str::<AppRole>(role) {
-        cookies.add_private(
-            Cookie::build(("role", serde_json::to_string(&parsed_role).unwrap()))
-                .same_site(SameSite::Lax)
-                .build(),
-        );
+/// If the username contained in the cookie doesn't correspond to any user in the DB.
+/// Or if the role cannot be serialized to a string.
+#[deprecated = "instead use the endpoint `post(\"/users/<user_id>/role\", data = \"<role>\")` managed by `endpoints::users::create_user_role`"]
+#[get("/set_role/<string_role>")]
+pub fn set_role(db: &Db, string_role: &str, cookies: &CookieJar<'_>) -> Redirect {
+    if let Ok(parsed_role) = serde_json::from_str::<AppRole>(string_role) {
+        if let Some(username_cookie) = cookies.get_private("username") {
+            let username = username_cookie.value();
+            let id = db
+                .username_lookup(username)
+                .unwrap() // we assume that if the cookie exists the user is real
+                .lock()
+                .unwrap()
+                .clone()
+                .id;
+
+            match parsed_role {
+                AppRole::SiteManager => db.set_role(
+                    &id,
+                    RoleResponse::SiteManager(SiteManager {
+                        name: username.to_owned(),
+                        ..Default::default()
+                    }),
+                ),
+                AppRole::SiteSupervisor => db.set_role(
+                    &id,
+                    RoleResponse::SiteSupervisor(SiteSupervisor {
+                        name: username.to_owned(),
+                        ..Default::default()
+                    }),
+                ),
+            };
+
+            cookies.add_private(
+                Cookie::build(("role", serde_json::to_string(&parsed_role).unwrap()))
+                    .same_site(SameSite::Lax)
+                    .build(),
+            );
+        } else {
+            return Redirect::to("/username_cookie_not_found");
+        }
     }
     Redirect::to("/")
 }
@@ -129,6 +164,7 @@ pub async fn github_callback(
             }
         },
         role: None,
+        role_id: None,
     };
 
     db.users.lock().unwrap().push(new_user);

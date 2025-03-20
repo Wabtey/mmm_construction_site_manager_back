@@ -4,22 +4,7 @@ use rocket_db_pools::diesel::QueryResult;
 
 use crate::models::{roles::Worker, Db};
 
-/// # Returns
-///
-/// `Vec<Worker>` workers of the searched site or 404
-///
-/// # Panics
-///
-/// This function will panic if the read lock on the database state cannot be acquired.
-#[get("/sites/<searched_site_id>/workers")]
-pub fn get_workers_by_site(db: &Db, searched_site_id: u64) -> Option<String> {
-    if let Some(searched_site) = db.site_lookup(searched_site_id) {
-        let workers = &searched_site.lock().unwrap().workers;
-        Some(format!("{workers:?}"))
-    } else {
-        None
-    }
-}
+/* ---------------------------------- CRUD ---------------------------------- */
 
 /// # Returns
 ///
@@ -126,6 +111,25 @@ pub fn delete_worker(db: &Db, worker_id: u64) -> Result<Json<Worker>, NotFound<S
         Ok(Json(worker.clone()))
     } else {
         Err(NotFound(format!("Worker with ID {worker_id} not found")))
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+/// # Returns
+///
+/// `Vec<Worker>` workers of the searched site or 404
+///
+/// # Panics
+///
+/// This function will panic if the read lock on the database state cannot be acquired.
+#[get("/sites/<searched_site_id>/workers")]
+pub fn get_workers_by_site(db: &Db, searched_site_id: u64) -> Option<String> {
+    if let Some(searched_site) = db.site_lookup(searched_site_id) {
+        let workers = &searched_site.lock().unwrap().workers;
+        Some(format!("{workers:?}"))
+    } else {
+        None
     }
 }
 

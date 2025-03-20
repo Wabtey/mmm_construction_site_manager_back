@@ -71,7 +71,11 @@ fn rocket() -> _ {
                 // users
                 endpoints::users::get_all_users,
                 endpoints::users::get_user,
+                endpoints::users::list,
                 endpoints::users::get_user_by_username,
+                endpoints::users::get_user_role,
+                endpoints::users::create_user_role,
+                endpoints::users::edit_user_role,
             ],
         )
         .attach(OAuth2::<GitHubUserInfo>::fairing("github"))

@@ -74,7 +74,8 @@ pub enum AppRole {
 pub struct User {
     pub id: String,
     pub username: String,
-    /// `AppRole`
+    /// REFACTOR: `AppRole` may be removed
     pub role: Option<AppRole>,
-    // TODO: feat - add role index foreign key
+    /// role index foreign key
+    pub role_id: Option<u64>,
 }
