@@ -3,7 +3,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::models::{
-    sites::{Site, SiteStatus},
+    sites::{Feedback, Site, SiteStatus},
     Db,
 };
 
@@ -148,5 +148,63 @@ impl Db {
             .iter()
             .map(|site| Arc::new(Mutex::new(site.clone())))
             .collect::<Vec<_>>()
+    }
+
+    /// # Returns
+    ///
+    /// - Some of the updated site
+    /// - None if site not found
+    ///
+    /// # Panics
+    ///
+    /// If another user of the sites mutex panicked while holding the mutex (== the mutex was poisoned).
+    pub fn add_feedback(&self, site_id: u64, feedback: Feedback) -> Option<Arc<Mutex<Site>>> {
+        let site = self.site_lookup(site_id)?;
+        site.lock().unwrap().feedbacks.push(feedback);
+
+        Some(site)
+    }
+
+    /// # Returns
+    ///
+    /// - Some of the updated site
+    /// - None if site not found or if the feedback's index is out of bounds.
+    ///
+    /// # Panics
+    ///
+    /// If another user of the sites mutex panicked while holding the mutex (== the mutex was poisoned).
+    pub fn remove_feedback(&self, site_id: u64, feedback_index: usize) -> Option<Arc<Mutex<Site>>> {
+        let site_arc = self.site_lookup(site_id)?;
+        let mut site = site_arc.lock().unwrap();
+        if site.feedbacks.len() <= feedback_index {
+            return None;
+        }
+        site.feedbacks.remove(feedback_index);
+
+        Some(site_arc.clone())
+    }
+
+    /// # Returns
+    ///
+    /// - Some of the updated site
+    /// - None if site not found or if the feedback's index is out of bounds.
+    ///
+    /// # Panics
+    ///
+    /// If another user of the sites mutex panicked while holding the mutex (== the mutex was poisoned).
+    pub fn edit_feedback(
+        &self,
+        site_id: u64,
+        feedback_index: usize,
+        feedback: Feedback,
+    ) -> Option<Arc<Mutex<Site>>> {
+        let site_arc = self.site_lookup(site_id)?;
+        let mut site = site_arc.lock().unwrap();
+        if site.feedbacks.len() <= feedback_index {
+            return None;
+        }
+        site.feedbacks[feedback_index] = feedback;
+
+        Some(site_arc.clone())
     }
 }

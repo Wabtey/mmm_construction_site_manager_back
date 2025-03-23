@@ -68,6 +68,9 @@ fn rocket() -> _ {
                 endpoints::sites::delete_site,
                 endpoints::sites::get_uncompleted_sites,
                 endpoints::sites::edit_site_status,
+                endpoints::sites::add_site_feedback,
+                endpoints::sites::remove_site_feedback,
+                endpoints::sites::edit_site_feedback,
                 // users
                 endpoints::users::get_all_users,
                 endpoints::users::get_user,

@@ -2,6 +2,7 @@ use rocket::response::status::{Created, NotFound};
 use rocket::serde::json::Json;
 use rocket_db_pools::diesel::QueryResult;
 
+use crate::models::sites::Feedback;
 use crate::models::{
     sites::{Site, SiteStatus},
     Db,
@@ -167,6 +168,93 @@ pub fn edit_site_status(
     }
 }
 
+/// Add a feedback to the `Site`.
+///
+/// # Returns
+///
+/// `Site` site with the `Feedback` pushed to its `feedbacks` or 404.
+///
+/// # Errors
+///
+/// 404 if not found.
+///
+/// # Panics
+///
+/// This function will panic if the mutex was poisoned.
+#[post("/sites/<site_id>/feedbacks", data = "<new_feedback>")]
+pub fn add_site_feedback(
+    db: &Db,
+    site_id: u64,
+    new_feedback: Json<Feedback>,
+) -> Result<Json<Site>, NotFound<String>> {
+    if let Some(mutex_site) = db.add_feedback(site_id, new_feedback.into_inner()) {
+        let site = mutex_site.lock().unwrap();
+        Ok(Json(site.clone()))
+    } else {
+        Err(NotFound(format!("Site with ID {site_id} not found")))
+    }
+}
+
+/// Remove a certain feedback to the `Site` using its index (starting at 0).
+///
+/// # Returns
+///
+/// `Site` site with the `Feedback` removed to its `feedbacks` or 404.
+///
+/// # Errors
+///
+/// 404 if the is not found or if its feedback (corresponding to the given id) is not found.
+///
+/// # Panics
+///
+/// This function will panic if the mutex was poisoned.
+#[delete("/sites/<site_id>/feedbacks/<feedback_index>")]
+pub fn remove_site_feedback(
+    db: &Db,
+    site_id: u64,
+    feedback_index: usize,
+) -> Result<Json<Site>, NotFound<String>> {
+    if let Some(mutex_site) = db.remove_feedback(site_id, feedback_index) {
+        let site = mutex_site.lock().unwrap();
+        Ok(Json(site.clone()))
+    } else {
+        Err(NotFound(format!("Site with ID {site_id} not found or feedback's index {feedback_index} is out of bounds.")))
+    }
+}
+
+/// Edit a certain feedback to the `Site` using its index (starting at 0).
+///
+/// # Returns
+///
+/// `Site` site with the `Feedback` removed to its `feedbacks` or 404.
+///
+/// # Errors
+///
+/// 404 if the is not found or if its feedback (corresponding to the given id) is not found.
+///
+/// # Panics
+///
+/// This function will panic if the mutex was poisoned.
+#[put(
+    "/sites/<site_id>/feedbacks/<feedback_index>",
+    data = "<edited_feedback>"
+)]
+pub fn edit_site_feedback(
+    db: &Db,
+    site_id: u64,
+    feedback_index: usize,
+    edited_feedback: Json<Feedback>,
+) -> Result<Json<Site>, NotFound<String>> {
+    if let Some(mutex_site) =
+        db.edit_feedback(site_id, feedback_index, edited_feedback.into_inner())
+    {
+        let site = mutex_site.lock().unwrap();
+        Ok(Json(site.clone()))
+    } else {
+        Err(NotFound(format!("Site with ID {site_id} not found or feedback's index {feedback_index} is out of bounds.")))
+    }
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                    Tests                                   */
 /* -------------------------------------------------------------------------- */
@@ -178,6 +266,7 @@ mod tests {
     use rocket::{http::Status, Build, Rocket};
 
     use crate::endpoints::sites;
+    use crate::models::sites::Feedback;
     use crate::models::{sites::Site, Db};
 
     fn setup_rocket() -> Rocket<Build> {
@@ -196,6 +285,17 @@ mod tests {
             ..Default::default()
         });
 
+        db.sites.lock().unwrap().push(Site {
+            id: 1002,
+            name: "1332 Benches".to_owned(),
+            purpose: "Add brand new benches in Park of Villejean".to_owned(),
+            feedbacks: vec![Feedback {
+                description: "need planks".to_owned(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+
         rocket::build().manage(db).mount(
             "/api",
             rocket::routes![
@@ -204,6 +304,9 @@ mod tests {
                 sites::create_site,
                 sites::update_site,
                 sites::delete_site,
+                sites::add_site_feedback,
+                sites::remove_site_feedback,
+                sites::edit_site_feedback
             ],
         )
     }
@@ -358,6 +461,143 @@ mod tests {
         });
 
         let response = client.delete("/api/sites/9999").dispatch();
+        assert_eq!(response.status(), Status::NotFound);
+    }
+
+    #[test]
+    fn test_feedback_addition_site_found() {
+        let client = Client::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        let new_feedback = Feedback {
+            urgent: false,
+            description: "Need 100kgs of concrete more.".to_owned(),
+            ..Default::default()
+        };
+        let response = client
+            .post("/api/sites/1000/feedbacks")
+            .json(&new_feedback)
+            .dispatch();
+
+        assert_eq!(response.status(), Status::Ok);
+        let site_response: Site = response
+            .into_json::<Site>()
+            .expect("Failed to parse to Rust Type");
+        assert!(site_response
+            .feedbacks
+            .iter()
+            .any(|feedback| feedback.description == "Need 100kgs of concrete more."));
+    }
+
+    #[test]
+    fn test_feedback_addition_site_not_found() {
+        let rocket_client = Client::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        let feedback = Feedback::default();
+        let response = rocket_client
+            .post("/api/sites/9000/feedbacks")
+            .json(&feedback)
+            .dispatch();
+
+        assert_eq!(response.status(), Status::NotFound);
+    }
+
+    #[test]
+    fn test_feedback_removal_site_found() {
+        let rocket_client = Client::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        let response = rocket_client
+            .delete("/api/sites/1002/feedbacks/0")
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+
+        let site_response: Site = response
+            .into_json::<Site>()
+            .expect("Failed to parse to Rust Type");
+        assert!(site_response.feedbacks.is_empty());
+    }
+
+    #[test]
+    fn test_feedback_removal_site_not_found() {
+        let rocket_client = Client::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        // site id incorrect
+        let response = rocket_client
+            .delete("/api/sites/9876/feedbacks/0")
+            .dispatch();
+        assert_eq!(response.status(), Status::NotFound);
+
+        // feedback index incorrect (no feedback)
+        let response = rocket_client
+            .delete("/api/sites/1000/feedbacks/0")
+            .dispatch();
+        assert_eq!(response.status(), Status::NotFound);
+
+        // feedback index incorrect (only one feedback)
+        let response = rocket_client
+            .delete("/api/sites/1002/feedbacks/1")
+            .dispatch();
+        assert_eq!(response.status(), Status::NotFound);
+    }
+
+    #[test]
+    fn test_feedback_edition_site_found() {
+        let rocket_client = Client::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        let edited_feedback = Feedback {
+            treated: true, // we change this status
+            description: "need planks".to_owned(),
+            ..Default::default()
+        };
+
+        let response = rocket_client
+            .put("/api/sites/1002/feedbacks/0")
+            .json(&edited_feedback)
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+
+        let site_response: Site = response
+            .into_json::<Site>()
+            .expect("Failed to parse to Rust Type");
+        assert!(site_response.feedbacks[0].treated);
+    }
+
+    #[test]
+    fn test_feedback_edition_site_not_found() {
+        let rocket_client = Client::tracked(setup_rocket()).unwrap_or_else(|err| {
+            panic!("Failed to create a valid rocket instance: {err}");
+        });
+
+        let feedback = Feedback::default();
+
+        // site id incorrect
+        let response = rocket_client
+            .put("/api/sites/9876/feedbacks/0")
+            .json(&feedback)
+            .dispatch();
+        assert_eq!(response.status(), Status::NotFound);
+
+        // feedback index incorrect (no feedback)
+        let response = rocket_client
+            .put("/api/sites/1000/feedbacks/0")
+            .json(&feedback)
+            .dispatch();
+        assert_eq!(response.status(), Status::NotFound);
+
+        // feedback index incorrect (only one feedback)
+        let response = rocket_client
+            .put("/api/sites/1002/feedbacks/1")
+            .json(&feedback)
+            .dispatch();
         assert_eq!(response.status(), Status::NotFound);
     }
 }

@@ -17,6 +17,7 @@ pub struct Site {
     pub start_day: SystemTime,
     pub duration: SiteDuration,
     pub status: SiteStatus,
+    pub feedbacks: Vec<Feedback>,
     /// in `MySQL`, splitted into each individual attributes.
     /// For now: `Vec<Vehicles>`
     pub resources: SiteResource,
@@ -36,6 +37,7 @@ impl Default for Site {
             coordinates: (f32::default(), f32::default()),
             duration: SiteDuration::default(),
             status: SiteStatus::default(),
+            feedbacks: Vec::default(),
             resources: SiteResource::default(),
             workers: Vec::default(),
             site_manager: SiteManager::default(),
@@ -66,4 +68,12 @@ pub enum SiteStatus {
 pub struct SiteDuration {
     pub half_day: i32,
     pub start_period: DayPeriod,
+}
+
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+pub struct Feedback {
+    pub urgent: bool,
+    pub treated: bool,
+    pub description: String,
+    pub photos: Vec<String>,
 }

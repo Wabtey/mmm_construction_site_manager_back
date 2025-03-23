@@ -80,7 +80,7 @@ pub fn list(db: &Db) -> QueryResult<Json<Vec<String>>> {
 /// # Panics
 ///
 /// This function will panic if the read lock on the database state cannot be acquired.
-#[get("/users/usernames/<search_username>", rank = 1)]
+#[get("/users/usernames/<search_username>")]
 pub fn get_user_by_username(
     db: &Db,
     search_username: &str,
@@ -106,7 +106,7 @@ pub fn get_user_by_username(
 /// # Panics
 ///
 /// This function will panic if the read lock on the database state cannot be acquired.
-#[get("/users/<user_id>/role")]
+#[get("/users/<user_id>/role", rank = 1)]
 pub fn get_user_role(db: &Db, user_id: &str) -> Result<Json<RoleResponse>, NotFound<String>> {
     let potential_user = db.user_lookup(user_id);
 
