@@ -7,7 +7,7 @@ edition = "2021"
 rocket = { version = "0.5", features = ["json", "secrets"] }
 
 # -------------------------------- Database -------------------------------- #
-diesel = { version = "2", features = ["mysql", "mysql_backend", "numeric"] }
+# diesel = { version = "2", features = ["mysql", "mysql_backend", "numeric"] }
 rocket_db_pools = { version = "0.2", features = ["diesel_mysql"] }
 
 # ---------------------------- Authentication ---------------------------- #

@@ -1,9 +1,4 @@
-use diesel::result::Error;
-use rocket::response::Debug;
-use rocket_db_pools::diesel::QueryResult;
 use serde::{Deserialize, Serialize};
-
-use super::Db;
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct Worker {
@@ -17,7 +12,7 @@ pub struct SiteManager {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct SiteSupervisor {
     pub id: u64,
     pub name: String,
@@ -30,20 +25,38 @@ pub struct Client {
     pub phone_number: String,
 }
 
-/* -------------------------------- Endpoints ------------------------------- */
+/* ----------------------------------- API ---------------------------------- */
 
-/// # Errors
+/// Deserialize is not needed.
+/// We serialize them into just their content (just `Client`, etc) with `#[serde(tag = "type")]`
 ///
-/// This function will return an error if the site ID doesn't exist in the database.
-/// # Panics
+/// # Example
 ///
-/// This function will panic if the read lock on the database state cannot be acquired.
-#[get("/sites/<searched_site_id>/workers")]
-pub fn get_workers_by_site(db: &Db, searched_site_id: u64) -> QueryResult<String> {
-    if let Some(searched_site) = db.site_lookup(searched_site_id) {
-        let workers = &searched_site.lock().unwrap().workers;
-        Ok(format!("{workers:?}"))
-    } else {
-        Err(Debug(Error::NotFound))
+/// ```json
+/// {
+///     "type": "Client",
+///     "id": 9876,
+///     "name": "Olf Who",
+///     "phone_number": "123-456-7890"
+/// }
+/// ```
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "type")]
+pub enum RoleResponse {
+    Client(Client),
+    Worker(Worker),
+    SiteManager(SiteManager),
+    SiteSupervisor(SiteSupervisor),
+}
+
+impl RoleResponse {
+    #[must_use]
+    pub fn get_id(&self) -> u64 {
+        match self {
+            RoleResponse::SiteSupervisor(supervisor) => supervisor.id,
+            RoleResponse::SiteManager(manager) => manager.id,
+            RoleResponse::Worker(worker) => worker.id,
+            RoleResponse::Client(client) => client.id,
+        }
     }
 }

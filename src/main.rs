@@ -4,6 +4,7 @@
 #![deny(unused_must_use)]
 
 pub mod auth;
+pub mod endpoints;
 pub mod models;
 pub mod services;
 
@@ -13,14 +14,13 @@ extern crate rocket;
 
 use crate::auth::{CookieUser, GitHubUserInfo};
 use models::Db;
-use rocket::routes;
+use rocket::{get, routes};
 use rocket_oauth2::OAuth2;
 
 #[rocket::launch]
 fn rocket() -> _ {
     rocket::build()
         .manage(Db::default())
-        // .attach(database::CatchDbErrors)
         .mount(
             "/",
             routes![
@@ -30,8 +30,55 @@ fn rocket() -> _ {
                 auth::github_callback,
                 auth::github_login,
                 auth::set_role,
-                services::users::list,
-                services::users::get_user_by_username,
+            ],
+        )
+        .mount(
+            "/api",
+            routes![
+                // clients
+                endpoints::roles::clients::get_all_clients,
+                endpoints::roles::clients::get_client,
+                endpoints::roles::clients::create_client,
+                endpoints::roles::clients::update_client,
+                endpoints::roles::clients::delete_client,
+                //site managers
+                endpoints::roles::site_managers::get_all_site_managers,
+                endpoints::roles::site_managers::get_site_manager,
+                endpoints::roles::site_managers::create_site_manager,
+                endpoints::roles::site_managers::update_site_manager,
+                endpoints::roles::site_managers::delete_site_manager,
+                // site supervisors
+                endpoints::roles::site_supervisors::get_all_site_supervisors,
+                endpoints::roles::site_supervisors::get_site_supervisor,
+                endpoints::roles::site_supervisors::create_site_supervisor,
+                endpoints::roles::site_supervisors::update_site_supervisor,
+                endpoints::roles::site_supervisors::delete_site_supervisor,
+                // workers
+                endpoints::roles::workers::get_all_workers,
+                endpoints::roles::workers::get_worker,
+                endpoints::roles::workers::create_worker,
+                endpoints::roles::workers::update_worker,
+                endpoints::roles::workers::delete_worker,
+                endpoints::roles::workers::get_workers_by_site,
+                // sites
+                endpoints::sites::get_all_sites,
+                endpoints::sites::get_site,
+                endpoints::sites::create_site,
+                endpoints::sites::update_site,
+                endpoints::sites::delete_site,
+                endpoints::sites::get_uncompleted_sites,
+                endpoints::sites::edit_site_status,
+                endpoints::sites::add_site_feedback,
+                endpoints::sites::remove_site_feedback,
+                endpoints::sites::edit_site_feedback,
+                // users
+                endpoints::users::get_all_users,
+                endpoints::users::get_user,
+                endpoints::users::list,
+                endpoints::users::get_user_by_username,
+                endpoints::users::get_user_role,
+                endpoints::users::create_user_role,
+                endpoints::users::edit_user_role,
             ],
         )
         .attach(OAuth2::<GitHubUserInfo>::fairing("github"))
