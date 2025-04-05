@@ -5,7 +5,7 @@
 
 [gh-image]: https://github.com/Wabtey/mmm_construction_site_manager_back/actions/workflows/rust.yml/badge.svg?branch=feature-endpoints
 [gh-checks]: https://github.com/Wabtey/mmm_construction_site_manager_back/actions/workflows/rust.yml?query=branch%3Afeature-endpoints
-[codecov-img]: https://img.shields.io/codecov/c/github/Wabtey/mmm_construction_site_manager_back%2Fbranch%2Ffeature-endpoints?logo=codecov
+[codecov-img]: https://codecov.io/gh/Wabtey/mmm_construction_site_manager_back/branch/feature-endpoints/graph/badge.svg?token=XNWVB2LW8A
 [codecov-link]: https://codecov.io/gh/Wabtey/mmm_construction_site_manager_back
 
 ## Features
@@ -16,7 +16,7 @@
   - get all uncompleted sites
   - get site info
   - edit site infos (status, ...)
-  - TODO: feat - feedback on site's anomalies (difficulty, break, accident, ...)
+  - feedback on site's anomalies (difficulty, break, accident, ...)
   - TODO: feat - site photos + description
   - TODO: feat - get all available `SiteManager`
 
